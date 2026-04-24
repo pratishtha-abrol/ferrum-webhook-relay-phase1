@@ -57,7 +57,7 @@ brew services start postgresql  # Mac
 psql postgres
 ```
 
-```psql
+```
 CREATE DATABASE webhook_db;
 
 CREATE USER webhook_user WITH PASSWORD 'pswd';
