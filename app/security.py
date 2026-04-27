@@ -4,9 +4,7 @@ import hashlib
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    prehashed = hashlib.sha256(password.encode()).hexdigest()
-    return pwd_context.hash(prehashed)
+    return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    prehashed = hashlib.sha256(plain_password.encode()).hexdigest()
-    return pwd_context.verify(prehashed, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)
