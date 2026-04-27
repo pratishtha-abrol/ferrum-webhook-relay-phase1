@@ -25,6 +25,27 @@ Client → FastAPI → PostgreSQL → Response
 
 ---
 
+## Engineering Improvements
+
+### Connection Pooling
+Explicit SQLAlchemy pooling configured:
+
+* pool_size=5
+* max_overflow=10
+* pool_pre_ping=True
+
+Prevents connection exhaustion under load.
+
+### Request Latency Tracking
+Middleware added:
+
+* X-Process-Time header on every response
+* Logs per-request latency
+
+Baseline established for future performance comparisons.
+
+---
+
 ## Tech Stack
 
 * FastAPI
@@ -35,13 +56,26 @@ Client → FastAPI → PostgreSQL → Response
 
 ---
 
-## Key Learnings
+## Database Migrations
+Alembic integrated:
 
-* Request lifecycle with DB interaction
-* Blocking I/O and latency sources
-* Data validation via Pydantic
-* ORM abstraction vs raw SQL
-* Persistent state management
+* Schema version controlled
+* `create_all` removed
+* Migrations reproducible across environments
+
+---
+
+## Observations (Phase 1)
+* DB operations are blocking → impacts latency
+* Request time dominated by DB commit
+* System is CPU-light but I/O-bound
+
+---
+
+## Deliberate Limitations
+* No async DB (potential bottleneck)
+* No retry tracking (planned)
+* No caching (Phase 2)
 
 ---
 
@@ -70,6 +104,11 @@ GRANT ALL PRIVILEGES ON DATABASE webhook_db TO webhook_user;
 \c webhook_db
 GRANT ALL ON SCHEMA public TO webhook_user;
 \q
+```
+
+Create a `.env.db` file with the DATABASE_URL:
+```
+DATABASE_URL = "postgresql://webhook_user:pswd@localhost:5432/webhook_db"
 ```
 
 ```bash

@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+import time
 
 from .db import Base, engine
 from . import models, schemas
@@ -7,7 +8,15 @@ from .deps import get_db
 from .security import hash_password
 
 app = FastAPI()
-Base.metadata.create_all(bind=engine)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    print(f"{request.method} {request.url.path} completed in {process_time:.4f}s")
+    return response
 
 @app.get("/")
 def root():
