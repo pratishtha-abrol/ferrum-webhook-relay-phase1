@@ -26,3 +26,4 @@ class WebhookOut(BaseModel):
 
 class EventCreate(BaseModel):
     payload: Dict[str, Any]
+    event_type: str

@@ -117,6 +117,15 @@ INFO:     127.0.0.1:52526 - "GET /webhooks HTTP/1.1" 200 OK
 * Stale cache -> migrated via invalidation + TTL
 * Cache miss bursts -> potential DB spike
 
+### Redis Failure Handling
+
+Cache layer is designed with graceful degradation:
+- Redis errors do not break request flow
+- System falls back to PostgreSQL
+- Cache failures are logged for observability
+
+This ensures availability even when cache layer is unavailable.
+
 ## Deliberate Limitations
 * No async DB (potential bottleneck)
 * No retry tracking (planned)
