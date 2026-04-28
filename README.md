@@ -1,27 +1,34 @@
-# Ferrum — Webhook Relay (Phase 1 Complete)
+# Ferrum — Webhook Relay (Phase 2 Complete)
 
 ## Overview
 
 Ferrum is a webhook delivery platform built from first principles, evolving from a monolith into a distributed system.
 
-This repository contains the Phase 1 implementation: a synchronous FastAPI backend with PostgreSQL.
+This repository contains the Phase 1 and 2 implementation: a synchronous FastAPI backend with PostgreSQL.
 
 ---
 
-## Architecture (Phase 1)
-
-Client → FastAPI → PostgreSQL → Response
-
+## Architecture (Phase 2)
+```
+Client → FastAPI → Redis (Cache) → PostgreSQL → Response
+```
 ---
 
 ## Features Implemented
 
+#### CORE (Phase 1)
 * User registration (`/register`)
 * Password hashing (bcrypt)
 * Duplicate user protection
 * Webhook creation & listing
 * Event ingestion
 * Persistent storage (PostgreSQL)
+
+#### Performance Layer (Phase 2)
+* Redis integration for caching
+* Cache-aside pattern implementation
+* Cache invalidation on write operations
+* Request latency tracking (X-Process-Time)
 
 ---
 
@@ -44,6 +51,28 @@ Middleware added:
 
 Baseline established for future performance comparisons.
 
+### Database Migrations
+Alembic integrated:
+
+* Schema version controlled
+* `create_all` removed
+* Migrations reproducible across environments
+
+### Observability
+* Per request latency logging
+* X-Process-Time header for benchmarking
+
+### Caching Strategy (Phase 2)
+* Caching for only webhook list (read-heavy, low mutation)
+#### Pattern Used:
+Cache-aside:
+1. Check cache
+2. If miss → fetch from DB
+3. Store in cache with TTL
+4. Return response
+#### TTL
+60 seconds (configurable)
+
 ---
 
 ## Tech Stack
@@ -56,26 +85,42 @@ Baseline established for future performance comparisons.
 
 ---
 
-## Database Migrations
-Alembic integrated:
-
-* Schema version controlled
-* `create_all` removed
-* Migrations reproducible across environments
-
----
-
 ## Observations (Phase 1)
 * DB operations are blocking → impacts latency
 * Request time dominated by DB commit
 * System is CPU-light but I/O-bound
 
+## Observations (Phase 2)
+| Scenario | Latency |
+| -------- | ------- |
+| Cache Miss | ~ 22ms |
+| Cache Hit | ~ 1.2ms |
+
+```bash
+CACHE MISS
+GET /webhooks completed in 0.0220s
+INFO:     127.0.0.1:52521 - "GET /webhooks HTTP/1.1" 200 OK
+CACHE HIT
+GET /webhooks completed in 0.0012s
+INFO:     127.0.0.1:52526 - "GET /webhooks HTTP/1.1" 200 OK
+```
+
+##### Insight -
+* ~18ms improvement on cached reads
+* DB latency is dominant on uncached path
+* Cache removed DB dependency for repeated reads
+
 ---
+
+## Failure Considerations
+* Redis down -> fallback to DB
+* Stale cache -> migrated via invalidation + TTL
+* Cache miss bursts -> potential DB spike
 
 ## Deliberate Limitations
 * No async DB (potential bottleneck)
 * No retry tracking (planned)
-* No caching (Phase 2)
+* No delivery tracking per attempt
 
 ---
 
@@ -107,7 +152,7 @@ GRANT ALL ON SCHEMA public TO webhook_user;
 ```
 
 Create a `.env.db` file with the DATABASE_URL:
-```
+```bash
 DATABASE_URL = "postgresql://webhook_user:pswd@localhost:5432/webhook_db"
 ```
 
@@ -120,7 +165,19 @@ Docs: http://127.0.0.1:8000/docs
 
 ---
 
+## Key Learnings
+* Cache vs DB Tradeoffs
+* Cache invalidation complexity
+* Latency bottleneck identification
+* Read vs. write optimization
+
 ## Status
 
-✅ Phase 1 Complete
-➡️ Next: Phase 2 — Redis + Caching Layer
+✅ **Phase 1** Complete
+✅ **Phase 2** Complete
+➡️ Next: **Phase 3** — Async + Messaging 
+
+## Next Phase 
+* introduce queue
+* add worker service
+* implement retries and delivery guarantees

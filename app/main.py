@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import time
+import json
 
 from .db import Base, engine
 from . import models, schemas
 from .deps import get_db
 from .security import hash_password
+from .cache import redis_client
 
 app = FastAPI()
 
@@ -54,12 +56,29 @@ def create_webhook(
     db.commit()
     db.refresh(db_webhook)
 
+    redis_client.delete("webhooks:user:1")  # Invalidate cache for this user
+
     return db_webhook
 
 
 @app.get("/webhooks", response_model=list[schemas.WebhookOut])
 def list_webhooks(db: Session = Depends(get_db)):
-    return db.query(models.Webhook).all()
+    cache_key = "webhooks:user:1"  # TEMP: we don’t have auth yet
+    cached_webhooks = redis_client.get(cache_key)
+    if cached_webhooks:
+        print("CACHE HIT")
+        return json.loads(cached_webhooks)
+    print ("CACHE MISS")
+
+    webhooks = db.query(models.Webhook).all()
+    redis_client.setex(cache_key, 
+                       60, 
+                       json.dumps([{
+                            "id": webhook.id,
+                            "url": webhook.url,
+                            "event_type": webhook.event_type
+                       } for webhook in webhooks])) 
+    return webhooks
 
 @app.post("/events")
 def create_event(
